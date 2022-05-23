@@ -1,2 +1,2 @@
-# Pt2 Broadening Visual
-Codes used to visualize Pt2 broadening given a set of data and a binning
+# Pt2 Broadening
+Various codes related to the Pt2 Broadening analysis
