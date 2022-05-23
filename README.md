@@ -1,12 +1,12 @@
-## Pt2 Broadening
+# Pt2 Broadening
 Various codes related to the Pt2 Broadening analysis.
 
-# Organization
+## Organization
 - essentials : Stores all the codes related to the operations previous to visualization of the broadening
 - utilities : Stores codes not related to broadening or root files that are used by *essentials* and *visualization*
 - visualization : Stores all the codes that are used to visualize the broadening in function of different kinematical variables
 
-# Quick Tutorial
+## Quick Tutorial
 To obtain the broadening we need:
 - A root file that contains the PhiPQ distributions in Q2, Nu, Zh and Pt2 bins
 - A root file that contains an Ntuple with the binning (*check utilities*)
