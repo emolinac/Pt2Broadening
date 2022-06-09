@@ -1,12 +1,19 @@
-Int_t N_Q2  = 3;
-Int_t N_Nu  = 3;
+// Name convention:
+// X                    = Distribution without treatment
+// X_CLEAN              = Distribution with Pt2 cutoff applied
+// X_CLEAN_INTERPOLATED = Distribution with Pt2 cutoff applied and interpolation
+
+
+// Constants
+
+const Int_t N_Q2  = 3;
+const Int_t N_Nu  = 3;
 const Int_t N_Zh  = 8;
-Int_t N_Pt2 = 90;
-Int_t N_Phi = 12;
+const Int_t N_Pt2 = 90;
+const Int_t N_Phi = 12;
 
-Double_t Zh_min = 0;
-Double_t Zh_max = 1;
-
+const Double_t Zh_min            = 0;
+const Double_t Zh_max            = 1;
 const Double_t Zh_limits[N_Zh+1] = {0,0.1,0.2,0.3,0.4,0.5,0.6,0.8,1};
 
 const Double_t Pt2_min   = 0.;
@@ -22,7 +29,6 @@ const Double_t max_ChiSQndf = 10;
 // Functions declaration
 
 void     fit_and_cutoff(TString material, TFile* fsource, TFile* ftarget);
-
 void     GetCleanPt2Distribution(TH1F* h, Double_t cutoff);
 void     GetInterpolatedPt2Distribution(TH1F* h);
 
@@ -32,6 +38,7 @@ Double_t GetWeightedPt2Cutoff(Double_t* ChiSQndf_array,Double_t* ndf_array,Doubl
 Double_t GetInterpolatedPt2Point(Double_t x, Double_t prev_bin, Double_t next_bin, Double_t prev_bin_center, Double_t next_bin_center);
 Double_t GetInterpolatedPt2PointError(Double_t x, Double_t prev_bin_error, Double_t next_bin_error, Double_t prev_bin_center, Double_t next_bin_center);
 
+// MAIN
 void MACRO_Pt2_processing(){
   TFile* fsource = new TFile("corr_data_Pt2.root","READ");
   TFile* ftarget = new TFile("corr_data_Pt2_processed.root","RECREATE");
@@ -69,8 +76,10 @@ void fit_and_cutoff(TString material, TFile* fsource, TFile* ftarget)
 
 	  meanPt2->SetBinContent(Zh_bin+1, h->GetMean());
 	  meanPt2->SetBinError(Zh_bin+1, h->GetMeanError());
+
 	  meanPt2_CLEAN->SetBinContent(Zh_bin+1, h->GetMean());
 	  meanPt2_CLEAN->SetBinError(Zh_bin+1, h->GetMeanError());
+
 	  meanPt2_CLEAN_INTERPOLATED->SetBinContent(Zh_bin+1, h_clone->GetMean());
 	  meanPt2_CLEAN_INTERPOLATED->SetBinError(Zh_bin+1, h_clone->GetMeanError());
 
@@ -100,15 +109,19 @@ void fit_and_cutoff(TString material, TFile* fsource, TFile* ftarget)
 	  validity_func->SetParameter(0,fit_func->GetParameter(0));
 	  validity_func->SetParameter(1,fit_func->GetParameter(1));
 
-	  if((fit_func->GetChisquare()/fit_func->GetNDF()<max_ChiSQndf)&&(fit_func->GetParameter(1)<0.3)){//FIT QUALLITY CHECK
-	    //START REGION VALIDATION
+	  // Check if ChiSQndf is lower than the maximum allowed
+	  // Check if width of exponential is reasonable
+	  if((fit_func->GetChisquare()/fit_func->GetNDF()<max_ChiSQndf)&&(fit_func->GetParameter(1)<0.3)){
+
+	    // Check whether the validity function gives a cutoff value bigger or smaller than the maximum experimental value
+	    // and assign the cutoff 
 	    if(validity_func->GetX(1)>=Pt2_fit_max){
 	      Pt2_cutoff[i]   = Pt2_fit_max;
 	    }
 	    else{
 	      Pt2_cutoff[i]   = fit_func->GetX(1);
 	    }
-	    //END REGION VALIDATION
+
 	    ChiSQndf_array[i] = fit_func->GetChisquare()/fit_func->GetNDF();
 	    ndf_array[i]      = fit_func->GetNDF();
 	    ftarget->cd();
@@ -123,8 +136,10 @@ void fit_and_cutoff(TString material, TFile* fsource, TFile* ftarget)
 	  }
 	}//END FIT LOOP
 
-	//GETTING CUTOFF
-	Double_t weighted_Pt2_cutoff;
+	// Obtaining final cutoff
+	Double_t weighted_Pt2_cutoff = 0;
+
+	// If no fit passed the quality test write the standard distribution with the same names
 	if(fits_completed==0){
 	  ftarget->cd();
 	  h->Write();
@@ -141,21 +156,23 @@ void fit_and_cutoff(TString material, TFile* fsource, TFile* ftarget)
 
 	  continue;
 	}
+	// If one fit passed quality test return the only non-null value in the Pt2_cutoff array
 	else if(fits_completed==1){
 	  weighted_Pt2_cutoff = TMath::MaxElement(number_of_fits,Pt2_cutoff);
 	  std::cout<<"Single fit completed. Cutoff="<<weighted_Pt2_cutoff<<std::endl;
 	}
+	// If more than one fit passes the quality tesst, obtain the weighted average 
 	else{
 	  weighted_Pt2_cutoff = GetWeightedPt2Cutoff(ChiSQndf_array, ndf_array, Pt2_cutoff, number_of_fits);
 	  std::cout<<"Multiple fit completed. Cutoff="<<weighted_Pt2_cutoff<<std::endl;
 	}
 	//END GETTING CUTOFF
 
-	//CLEANING
+	// Removal of events passed the Pt2 cutoff
 	GetCleanPt2Distribution(h_clone, weighted_Pt2_cutoff);
 	TH1F* h_clone2 = (TH1F*)h_clone->Clone();
 
-	//Interpolating
+	// Interpolation of the resulting distribution
 	GetInterpolatedPt2Distribution(h_clone2);
 
 	ftarget->cd();
@@ -201,14 +218,15 @@ Int_t GetFirstEmptyBin(TH1F* h)
 }
 
 Double_t GetWeightedPt2Cutoff(Double_t* ChiSQndf_array,Double_t* ndf_array,Double_t* Pt2_cutoff,Int_t array_size){
-  Double_t total_ChiSQndf=0;
-  Double_t total_ndf=0;
-  Double_t total_weight=0;
-  Double_t weight=0;
-  Double_t sum_weightPt2=0;
+  Double_t total_ChiSQndf	= 0;
+  Double_t total_ndf		= 0;
+  Double_t total_weight		= 0;
+  Double_t weight		= 0;
+  Double_t sum_weightPt2	= 0;
   
   //VARIABLES TOTAL WEIGHT LOOP
-  for(Int_t index = 0 ; index <array_size ; index++){
+  for(Int_t index = 0 ; index < array_size ; index++){
+    // This loop only considers usable cutoff values
     if(TMath::IsNaN(Pt2_cutoff[index])||Pt2_cutoff[index]==0){continue;}
     total_ChiSQndf += ChiSQndf_array[index];
     total_ndf += ndf_array[index];
@@ -217,10 +235,11 @@ Double_t GetWeightedPt2Cutoff(Double_t* ChiSQndf_array,Double_t* ndf_array,Doubl
 
   //SUM WEIGHT*PT2 LOOP
   for(Int_t index = 0 ; index <array_size ; index++){
+    // This loop only considers usable cutoff values
     if(TMath::IsNaN(Pt2_cutoff[index])||Pt2_cutoff[index]==0){continue;}
     weight         = (TMath::Gaus(ChiSQndf_array[index],1,0.2)*ChiSQndf_weight + (ndf_array[index]/total_ndf)*ndf_weight)/(ChiSQndf_weight+ndf_weight);
     
-    std::cout<<"ChiSQndf="<<ChiSQndf_array[index]<<"  ndf="<<ndf_array[index]<<"   weight="<<weight<<std::endl;
+    //    std::cout<<"ChiSQndf="<<ChiSQndf_array[index]<<"  ndf="<<ndf_array[index]<<"   weight="<<weight<<std::endl;
     
     total_weight  += weight;
     sum_weightPt2 += weight*Pt2_cutoff[index];

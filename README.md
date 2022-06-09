@@ -15,4 +15,4 @@ The steps are:
 1. Integrate the PhiPQ distributions with *MACRO_Integration_Phi.cpp*
 2. Treat the Pt2 distributions with *MACRO_Pt2_processing.cpp*
 
-After the previoous steps, there are multiple choices about what to do. There are MACROS for every choice!
+After the previous steps, there are multiple choices about what to do. There are MACROS for every choice!
